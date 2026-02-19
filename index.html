@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>멍멍 퍼즐 (작곡가 모드)</title>
+    <title>멍멍 퍼즐 (모바일 최적화)</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
 
@@ -13,7 +13,7 @@
             overflow: hidden;
             background-color: #FFF3E0;
             font-family: 'Gaegu', cursive;
-            user-select: none;
+            user-select: none; /* 드래그 방지 */
         }
 
         .btn {
@@ -70,12 +70,34 @@
 
         #game-container { flex-grow: 1; position: relative; overflow: hidden; }
         canvas { display: block; touch-action: none; }
+
+        /* 미리보기 박스 스타일 (PC 기본) */
         #preview-box {
-            position: absolute; top: 10px; right: 10px; width: 120px;
-            border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            pointer-events: none; z-index: 20; background: white; border-radius: 8px;
+            position: absolute; 
+            top: 10px; 
+            right: 10px; 
+            width: 120px;
+            border: 3px solid white; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            pointer-events: none; /* 클릭 통과 (매우 중요) */
+            z-index: 20; 
+            background: white; 
+            border-radius: 8px;
+            transition: all 0.3s ease; /* 부드러운 이동 */
         }
         #preview-box img { width: 100%; display: block; }
+
+        /* ★ 모바일 전용 스타일 추가 ★ */
+        @media (max-width: 768px) {
+            #preview-box {
+                top: auto;        /* 위쪽 고정 해제 */
+                bottom: 20px;     /* 아래쪽에 배치 */
+                right: 20px;      /* 오른쪽 배치 */
+                width: 80px;      /* 크기 축소 */
+                opacity: 0.7;     /* 반투명하게 */
+                border: 2px solid white;
+            }
+        }
 
         /* 5. 완성 화면 */
         #victory-overlay {
@@ -155,17 +177,16 @@
 
     <script>
         // ==========================================
-        // 🎵 AI 랜덤 작곡 시스템 (Every time new BGM)
+        // 🎵 AI 랜덤 작곡 시스템 (Web Audio API)
         // ==========================================
         let audioCtx;
         let isMuted = false;
         let isPlaying = false;
         let noteTimeout;
         let melodyIndex = 0;
-        let currentMelody = []; // 작곡된 멜로디가 저장될 곳
+        let currentMelody = [];
 
-        // 음계 (C Major Pentatonic: 도, 레, 미, 솔, 라, 높은도)
-        // 이 음들은 아무렇게나 섞어도 듣기 좋습니다.
+        // 펜타토닉 스케일 (도, 레, 미, 솔, 라)
         const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
 
         function initAudio() {
@@ -177,49 +198,36 @@
             }
         }
 
-        // 🎼 새로운 멜로디 작곡 함수
+        // 새로운 멜로디 작곡
         function composeMelody() {
             currentMelody = [];
-            // 16박자 길이의 멜로디 생성
             for (let i = 0; i < 16; i++) {
-                // 랜덤으로 음 선택
                 const note = scale[Math.floor(Math.random() * scale.length)];
                 currentMelody.push(note);
             }
-            console.log("새로운 곡이 작곡되었습니다!");
         }
 
         function playNote(freq) {
             if (isMuted || !audioCtx) return;
-
             const osc = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-
-            osc.type = 'sine'; // 오르골 느낌의 사인파
+            osc.type = 'sine'; // 오르골 소리
             osc.frequency.value = freq;
-
-            // 소리 부드럽게 (Attack & Decay)
             const now = audioCtx.currentTime;
             gainNode.gain.setValueAtTime(0, now);
-            gainNode.gain.linearRampToValueAtTime(0.08, now + 0.1); // 볼륨 8%
+            gainNode.gain.linearRampToValueAtTime(0.08, now + 0.1);
             gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-
             osc.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-
             osc.start(now);
             osc.stop(now + 0.6);
         }
 
         function loopMelody() {
             if (!isPlaying) return;
-
             const note = currentMelody[melodyIndex];
             playNote(note);
-
             melodyIndex = (melodyIndex + 1) % currentMelody.length;
-            
-            // 박자: 0.4초 ~ 0.5초 사이로 약간의 인간적인 느낌 추가
             const tempo = 400 + Math.random() * 50; 
             noteTimeout = setTimeout(loopMelody, tempo);
         }
@@ -227,8 +235,7 @@
         function startBGM() {
             initAudio();
             if (!isPlaying) {
-                // 게임 시작할 때마다 새로 작곡!
-                composeMelody();
+                composeMelody(); // 매번 새로운 곡!
                 melodyIndex = 0;
                 isPlaying = true;
                 loopMelody();
@@ -246,7 +253,6 @@
             if(!isMuted && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        // 효과음: 틱 (조각 맞춤)
         function playSnap() {
             if (isMuted || !audioCtx) return;
             const osc = audioCtx.createOscillator();
@@ -260,7 +266,6 @@
             osc.stop(audioCtx.currentTime + 0.1);
         }
 
-        // 효과음: 승리 (빠라밤)
         function playWin() {
             if (isMuted || !audioCtx) return;
             const now = audioCtx.currentTime;
@@ -279,7 +284,7 @@
         }
 
         // ==========================================
-        // 게임 로직 (9x9)
+        // 게임 로직
         // ==========================================
         const dogImages = [
             "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600",
@@ -312,7 +317,7 @@
         let tX, tY, pX, pY;
 
         function enterGame() {
-            startBGM(); // [중요] 음악 시작
+            startBGM(); // 음악 시작
             startScreen.style.display = 'none';
             menuScreen.style.display = 'flex';
             loadGallery();
@@ -335,9 +340,7 @@
             gameScreen.style.display = 'none';
             menuScreen.style.display = 'flex';
             stopConfetti();
-            
-            // 홈으로 갈 때 새로운 곡 작곡!
-            composeMelody(); 
+            composeMelody(); // 홈으로 가면 새로운 노래 준비
             loadGallery();
         }
 
