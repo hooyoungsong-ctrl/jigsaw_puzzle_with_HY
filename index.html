@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>멍멍 퍼즐 (작곡가 모드)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
+
+        /* 1. 공통 스타일 */
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden;
+            background-color: #FFF3E0;
+            font-family: 'Gaegu', cursive;
+            user-select: none;
+        }
+
+        .btn {
+            background: #FF7043; color: white; border: none;
+            padding: 10px 20px; border-radius: 30px;
+            font-size: 1.2rem; cursor: pointer;
+            box-shadow: 0 4px 0 #D84315;
+            transition: transform 0.1s;
+            font-family: 'Gaegu', cursive;
+        }
+        .btn:active { transform: translateY(4px); box-shadow: 0 0 0 #D84315; }
+
+        /* 2. 시작 화면 */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #FFF3E0; z-index: 200;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .logo { font-size: 3.5rem; color: #5D4037; margin-bottom: 30px; font-weight: bold; }
+        .logo span { display: inline-block; animation: bounce 1s infinite alternate; }
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+
+        /* 3. 메뉴 화면 */
+        #menu-screen {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #E0F2F1; z-index: 100;
+            flex-direction: column; align-items: center; overflow-y: auto;
+        }
+        .gallery-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px; width: 90%; max-width: 800px; padding: 20px 0 50px 0;
+        }
+        .gallery-item {
+            background: white; border-radius: 15px; border: 4px solid white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            aspect-ratio: 1/1; cursor: pointer; overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .gallery-item:hover { transform: scale(1.05); }
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* 4. 게임 화면 */
+        #game-screen {
+            display: none; width: 100%; height: 100%; flex-direction: column; background: #ECEFF1;
+        }
+        #header-controls {
+            height: 60px; background: white; display: flex; align-items: center; justify-content: center;
+            gap: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; padding: 0 10px;
+        }
+        .diff-btn { font-size: 1rem; padding: 8px 12px; background: #90CAF9; box-shadow: 0 3px 0 #1E88E5; color: #0D47A1; }
+        .diff-btn.active { background: #1976D2; color: white; box-shadow: 0 2px 0 #0D47A1; transform: translateY(2px); }
+        .home-btn { background: #FFD54F; box-shadow: 0 3px 0 #FFA000; color: #5D4037; margin-right: 10px;}
+
+        #game-container { flex-grow: 1; position: relative; overflow: hidden; }
+        canvas { display: block; touch-action: none; }
+        #preview-box {
+            position: absolute; top: 10px; right: 10px; width: 120px;
+            border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            pointer-events: none; z-index: 20; background: white; border-radius: 8px;
+        }
+        #preview-box img { width: 100%; display: block; }
+
+        /* 5. 완성 화면 */
+        #victory-overlay {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 300;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        .victory-card {
+            background: white; padding: 40px; border-radius: 20px;
+            text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: popIn 0.5s ease;
+        }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+        #confetti-canvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 299; }
+
+        /* 음소거 버튼 */
+        #mute-btn {
+            position: absolute; bottom: 15px; left: 15px; z-index: 500;
+            background: rgba(255,255,255,0.9); border: none; border-radius: 50%;
+            width: 45px; height: 45px; font-size: 24px; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex; align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <div class="logo">
+            <span>🎵</span> <span>랜</span><span>덤</span> <span>작</span><span>곡</span>
+        </div>
+        <div style="font-size: 1.2rem; margin-bottom: 20px; color: #795548;">
+            매번 새로운 음악이 연주돼요!
+        </div>
+        <button class="btn" onclick="enterGame()" style="font-size: 1.5rem; padding: 15px 50px;">
+            게임 시작 ▶
+        </button>
+        <div style="margin-top: 15px; font-size: 0.9rem; color: #888;">
+            * 소리가 자동으로 켜집니다 🔈
+        </div>
+    </div>
+
+    <div id="menu-screen">
+        <h2 style="margin-top: 20px; color: #00695C;">그림을 선택하세요</h2>
+        <div class="gallery-grid" id="gallery"></div>
+        <div style="padding-bottom: 30px;">
+            <label class="btn" style="background:#78909C; font-size:1rem;">
+                📂 내 사진 열기
+                <input type="file" accept="image/*" style="display:none" onchange="manualFile(this)">
+            </label>
+        </div>
+    </div>
+
+    <div id="game-screen">
+        <div id="header-controls">
+            <button class="btn home-btn" onclick="goHome()">🏠 홈</button>
+            <button class="btn diff-btn" onclick="setLevel(3)" id="btn3">3x3</button>
+            <button class="btn diff-btn" onclick="setLevel(6)" id="btn6">6x6</button>
+            <button class="btn diff-btn" onclick="setLevel(9)" id="btn9">9x9</button>
+        </div>
+
+        <div id="game-container">
+            <canvas id="puzzleCanvas"></canvas>
+            <div id="preview-box"><img id="preview-img" src=""></div>
+        </div>
+        <button id="mute-btn" onclick="toggleMute()">🔊</button>
+    </div>
+
+    <div id="victory-overlay">
+        <canvas id="confetti-canvas"></canvas>
+        <div class="victory-card">
+            <h1 style="color: #FF6F00; margin: 0 0 10px 0;">🎉 성공! 🎉</h1>
+            <p style="font-size: 1.2rem; margin-bottom: 20px; color: #555;">정말 대단해요!</p>
+            <button class="btn" onclick="goHome()">다른 그림 하기</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 🎵 AI 랜덤 작곡 시스템 (Every time new BGM)
+        // ==========================================
+        let audioCtx;
+        let isMuted = false;
+        let isPlaying = false;
+        let noteTimeout;
+        let melodyIndex = 0;
+        let currentMelody = []; // 작곡된 멜로디가 저장될 곳
+
+        // 음계 (C Major Pentatonic: 도, 레, 미, 솔, 라, 높은도)
+        // 이 음들은 아무렇게나 섞어도 듣기 좋습니다.
+        const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // 🎼 새로운 멜로디 작곡 함수
+        function composeMelody() {
+            currentMelody = [];
+            // 16박자 길이의 멜로디 생성
+            for (let i = 0; i < 16; i++) {
+                // 랜덤으로 음 선택
+                const note = scale[Math.floor(Math.random() * scale.length)];
+                currentMelody.push(note);
+            }
+            console.log("새로운 곡이 작곡되었습니다!");
+        }
+
+        function playNote(freq) {
+            if (isMuted || !audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = 'sine'; // 오르골 느낌의 사인파
+            osc.frequency.value = freq;
+
+            // 소리 부드럽게 (Attack & Decay)
+            const now = audioCtx.currentTime;
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.08, now + 0.1); // 볼륨 8%
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.6);
+        }
+
+        function loopMelody() {
+            if (!isPlaying) return;
+
+            const note = currentMelody[melodyIndex];
+            playNote(note);
+
+            melodyIndex = (melodyIndex + 1) % currentMelody.length;
+            
+            // 박자: 0.4초 ~ 0.5초 사이로 약간의 인간적인 느낌 추가
+            const tempo = 400 + Math.random() * 50; 
+            noteTimeout = setTimeout(loopMelody, tempo);
+        }
+
+        function startBGM() {
+            initAudio();
+            if (!isPlaying) {
+                // 게임 시작할 때마다 새로 작곡!
+                composeMelody();
+                melodyIndex = 0;
+                isPlaying = true;
+                loopMelody();
+            }
+        }
+
+        function stopBGM() {
+            isPlaying = false;
+            clearTimeout(noteTimeout);
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            document.getElementById('mute-btn').innerText = isMuted ? '🔇' : '🔊';
+            if(!isMuted && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        // 효과음: 틱 (조각 맞춤)
+        function playSnap() {
+            if (isMuted || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // 효과음: 승리 (빠라밤)
+        function playWin() {
+            if (isMuted || !audioCtx) return;
+            const now = audioCtx.currentTime;
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, now + i*0.15);
+                gain.gain.linearRampToValueAtTime(0, now + i*0.15 + 0.4);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + i*0.15);
+                osc.stop(now + i*0.15 + 0.4);
+            });
+        }
+
+        // ==========================================
+        // 게임 로직 (9x9)
+        // ==========================================
+        const dogImages = [
+            "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600",
+            "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600",
+            "https://images.unsplash.com/photo-1591160690555-5debfba289f0?w=600",
+            "https://images.unsplash.com/photo-1534361960057-19889db9621e?w=600",
+            "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=600",
+            "https://images.unsplash.com/photo-1552053831-71594a27632d?w=600",
+            "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?w=600",
+            "https://images.unsplash.com/photo-1507146426996-ef05306b995a?w=600"
+        ];
+
+        const startScreen = document.getElementById('start-screen');
+        const menuScreen = document.getElementById('menu-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const victoryOverlay = document.getElementById('victory-overlay');
+        const gallery = document.getElementById('gallery');
+        const canvas = document.getElementById('puzzleCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('game-container');
+        const previewImg = document.getElementById('preview-img');
+
+        let img = new Image();
+        let pieces = [];
+        let difficulty = 3;
+        let pieceWidth, pieceHeight;
+        let boardX, boardY, boardW, boardH;
+        let trayX, trayY, trayW, trayH;
+        let selectedPiece = null;
+        let tX, tY, pX, pY;
+
+        function enterGame() {
+            startBGM(); // [중요] 음악 시작
+            startScreen.style.display = 'none';
+            menuScreen.style.display = 'flex';
+            loadGallery();
+        }
+
+        function loadGallery() {
+            gallery.innerHTML = '';
+            const shuffled = [...dogImages].sort(() => 0.5 - Math.random()).slice(0, 6);
+            shuffled.forEach(src => {
+                const div = document.createElement('div');
+                div.className = 'gallery-item';
+                div.onclick = () => startGame(src);
+                div.innerHTML = `<img src="${src}">`;
+                gallery.appendChild(div);
+            });
+        }
+
+        function goHome() {
+            victoryOverlay.style.display = 'none';
+            gameScreen.style.display = 'none';
+            menuScreen.style.display = 'flex';
+            stopConfetti();
+            
+            // 홈으로 갈 때 새로운 곡 작곡!
+            composeMelody(); 
+            loadGallery();
+        }
+
+        function manualFile(input) {
+            if(input.files && input.files[0]){
+                const reader = new FileReader();
+                reader.onload = e => startGame(e.target.result);
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function startGame(src) {
+            img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => {
+                menuScreen.style.display = 'none';
+                gameScreen.style.display = 'flex';
+                previewImg.src = src;
+                setLevel(3);
+            };
+            img.src = src;
+        }
+
+        function setLevel(n) {
+            difficulty = n;
+            document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+            const btn = document.getElementById('btn' + n);
+            if(btn) btn.classList.add('active');
+
+            if(img.complete) {
+                setTimeout(() => {
+                    resizeCanvas();
+                    initGame();
+                }, 50);
+            }
+        }
+
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        function initGame() {
+            resizeCanvas();
+            const W = canvas.width;
+            const H = canvas.height;
+            const isLandscape = W > H;
+
+            if(isLandscape) {
+                const maxBW = W * 0.60;
+                const maxBH = H * 0.90;
+                let scale = Math.min(maxBW / img.width, maxBH / img.height);
+                boardW = img.width * scale;
+                boardH = img.height * scale;
+                boardX = (maxBW - boardW)/2 + 20;
+                boardY = (H - boardH)/2;
+                trayX = maxBW; trayY = 0; trayW = W - maxBW; trayH = H;
+            } else {
+                const maxBW = W * 0.90;
+                const maxBH = H * 0.55;
+                let scale = Math.min(maxBW / img.width, maxBH / img.height);
+                boardW = img.width * scale;
+                boardH = img.height * scale;
+                boardX = (W - boardW)/2;
+                boardY = 20;
+                trayX = 0; trayY = maxBH + 20; trayW = W; trayH = H - trayY;
+            }
+
+            pieceWidth = boardW / difficulty;
+            pieceHeight = boardH / difficulty;
+            createPieces();
+            draw();
+        }
+
+        function createPieces() {
+            pieces = [];
+            for(let i=0; i<difficulty; i++){
+                for(let j=0; j<difficulty; j++){
+                    let p = {
+                        row: i, col: j,
+                        cX: boardX + j * pieceWidth,
+                        cY: boardY + i * pieceHeight,
+                        x: 0, y: 0, snapped: false,
+                        top: (i===0)?0 : -pieces[(i-1)*difficulty+j].bottom,
+                        bottom: (i===difficulty-1)?0 : (Math.random()>0.5?1:-1),
+                        left: (j===0)?0 : -pieces[i*difficulty+(j-1)].right,
+                        right: (j===difficulty-1)?0 : (Math.random()>0.5?1:-1)
+                    };
+                    p.x = trayX + Math.random() * (trayW - pieceWidth);
+                    p.y = trayY + Math.random() * (trayH - pieceHeight);
+                    pieces.push(p);
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = "white"; ctx.fillRect(boardX, boardY, boardW, boardH);
+            ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 2; ctx.strokeRect(boardX, boardY, boardW, boardH);
+            
+            ctx.beginPath(); ctx.strokeStyle = "rgba(0,0,0,0.05)";
+            for(let i=1; i<difficulty; i++){
+                ctx.moveTo(boardX + i*pieceWidth, boardY);
+                ctx.lineTo(boardX + i*pieceWidth, boardY + boardH);
+                ctx.moveTo(boardX, boardY + i*pieceHeight);
+                ctx.lineTo(boardX + boardW, boardY + i*pieceHeight);
+            }
+            ctx.stroke();
+
+            for(let p of pieces) if(p.snapped) drawPiece(p);
+            for(let p of pieces) if(!p.snapped && p!==selectedPiece) drawPiece(p);
+            if(selectedPiece) {
+                ctx.save(); ctx.shadowColor = "rgba(0,0,0,0.3)"; 
+                ctx.shadowBlur = 15; ctx.shadowOffsetX = 5; ctx.shadowOffsetY = 5;
+                drawPiece(selectedPiece); ctx.restore();
+            }
+        }
+
+        function drawPiece(p) {
+            ctx.save(); ctx.beginPath();
+            const x = p.x, y = p.y, w = pieceWidth, h = pieceHeight, tab = Math.min(w,h)*0.22;
+            ctx.moveTo(x,y);
+            if(p.top!==0){ ctx.lineTo(x+w*0.35, y); ctx.bezierCurveTo(x+w*0.35, y-tab*p.top, x+w*0.65, y-tab*p.top, x+w*0.65, y); }
+            ctx.lineTo(x+w, y);
+            if(p.right!==0){ ctx.lineTo(x+w, y+h*0.35); ctx.bezierCurveTo(x+w+tab*p.right, y+h*0.35, x+w+tab*p.right, y+h*0.65, x+w, y+h*0.65); }
+            ctx.lineTo(x+w, y+h);
+            if(p.bottom!==0){ ctx.lineTo(x+w*0.65, y+h); ctx.bezierCurveTo(x+w*0.65, y+h+tab*p.bottom, x+w*0.35, y+h+tab*p.bottom, x+w*0.35, y+h); }
+            ctx.lineTo(x, y+h);
+            if(p.left!==0){ ctx.lineTo(x, y+h*0.65); ctx.bezierCurveTo(x-tab*p.left, y+h*0.65, x-tab*p.left, y+h*0.35, x, y+h*0.35); }
+            ctx.lineTo(x, y); ctx.closePath(); ctx.clip();
+
+            const imgDX = p.x - (p.col * pieceWidth);
+            const imgDY = p.y - (p.row * pieceHeight);
+            try{ ctx.drawImage(img, 0, 0, img.width, img.height, imgDX, imgDY, boardW, boardH); }
+            catch(e){ ctx.fillStyle="#ccc"; ctx.fillRect(x,y,w,h); }
+            
+            ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.stroke(); ctx.restore();
+        }
+
+        function getPos(e){
+            const rect = canvas.getBoundingClientRect();
+            let cx = e.touches ? e.touches[0].clientX : e.clientX;
+            let cy = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: cx - rect.left, y: cy - rect.top };
+        }
+
+        function onDown(e) {
+            e.preventDefault(); const pos = getPos(e);
+            for(let i=pieces.length-1; i>=0; i--){
+                let p = pieces[i];
+                if(!p.snapped && pos.x>p.x && pos.x<p.x+pieceWidth && pos.y>p.y && pos.y<p.y+pieceHeight){
+                    selectedPiece = p; tX = pos.x; tY = pos.y; pX = p.x; pY = p.y;
+                    pieces.splice(i,1); pieces.push(p); draw(); return;
+                }
+            }
+        }
+        function onMove(e) {
+            if(!selectedPiece) return;
+            e.preventDefault(); const pos = getPos(e);
+            selectedPiece.x = pX + (pos.x - tX);
+            selectedPiece.y = pY + (pos.y - tY);
+            draw();
+        }
+        function onUp() {
+            if(!selectedPiece) return;
+            const dist = Math.sqrt(Math.pow(selectedPiece.x - selectedPiece.cX, 2) + Math.pow(selectedPiece.y - selectedPiece.cY, 2));
+            if(dist < Math.max(20, pieceWidth*0.3)){
+                selectedPiece.x = selectedPiece.cX; selectedPiece.y = selectedPiece.cY;
+                selectedPiece.snapped = true; 
+                playSnap(); 
+                pieces.unshift(pieces.pop());
+            }
+            selectedPiece = null; draw();
+            if(pieces.every(p=>p.snapped)) handleWin();
+        }
+
+        canvas.addEventListener('mousedown', onDown); canvas.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+        canvas.addEventListener('touchstart', onDown, {passive:false}); canvas.addEventListener('touchmove', onMove, {passive:false}); window.addEventListener('touchend', onUp);
+        window.addEventListener('resize', ()=> { if(gameScreen.style.display!=='none' && img.complete) initGame(); });
+
+        function handleWin() {
+            victoryOverlay.style.display = 'flex';
+            playWin();
+            startConfetti();
+        }
+
+        let confettiInterval;
+        const cCanvas = document.getElementById('confetti-canvas');
+        const cCtx = cCanvas.getContext('2d');
+        let particles = [];
+
+        function startConfetti() {
+            cCanvas.width = window.innerWidth;
+            cCanvas.height = window.innerHeight;
+            particles = [];
+            const colors = ['#f44336', '#2196F3', '#FFEB3B', '#4CAF50', '#E91E63'];
+            for(let i=0; i<200; i++){
+                particles.push({
+                    x: Math.random() * cCanvas.width,
+                    y: Math.random() * cCanvas.height - cCanvas.height,
+                    vx: Math.random() * 4 - 2,
+                    vy: Math.random() * 5 + 3,
+                    color: colors[Math.floor(Math.random()*colors.length)],
+                    size: Math.random() * 8 + 4
+                });
+            }
+            if(confettiInterval) clearInterval(confettiInterval);
+            confettiInterval = setInterval(() => {
+                cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
+                particles.forEach(p => {
+                    p.x += p.vx; p.y += p.vy;
+                    if(p.y > cCanvas.height) p.y = -10;
+                    cCtx.fillStyle = p.color;
+                    cCtx.fillRect(p.x, p.y, p.size, p.size);
+                });
+            }, 20);
+        }
+
+        function stopConfetti() {
+            clearInterval(confettiInterval);
+            cCtx.clearRect(0,0,cCanvas.width,cCanvas.height);
+        }
+    </script>
+</body>
+</html>
